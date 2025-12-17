@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlingCheck - Проверка эргономики слинга</title>
+    <meta name="description" content="AI-анализ правильности положения ребенка в слинге или рюкзаке-переноске">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>SlingCheck</h1>
+            <p class="subtitle">Проверьте правильность положения ребенка в слинге или рюкзаке</p>
+        </header>
+
+        <main>
+            <!-- Настройки API -->
+            <section class="settings-section">
+                <div class="settings-card">
+                    <h2>Настройки</h2>
+
+                    <div class="form-group">
+                        <label for="modelSelect">Выберите модель AI:</label>
+                        <select id="modelSelect" class="model-select">
+                            <!-- Опции заполняются динамически из config.js -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="apiKeyInput">
+                            API ключ:
+                            <button id="helpBtn" class="btn-help" type="button" title="Как получить API ключ?">?</button>
+                        </label>
+                        <div class="api-key-input-group">
+                            <input
+                                type="text"
+                                id="apiKeyInput"
+                                placeholder="Введите API ключ"
+                                autocomplete="off"
+                            >
+                            <button id="saveKeyBtn" class="btn btn-secondary">Сохранить</button>
+                        </div>
+                        <small class="hint">Ключ сохраняется в браузере и не передается никуда, кроме выбранного AI провайдера</small>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Загрузка фото -->
+            <section class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p class="upload-text">Перетащите фото сюда или</p>
+                        <button class="btn btn-primary" id="uploadBtn">Выбрать фото</button>
+                        <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
+                        <small class="upload-hint">Поддерживаются JPG, PNG, WebP до 5MB</small>
+                    </div>
+                </div>
+
+                <!-- Превью изображения -->
+                <div class="preview-container" id="previewContainer" style="display: none;">
+                    <img id="imagePreview" alt="Предпросмотр фото">
+                    <button id="analyzeBtn" class="btn btn-large btn-primary" disabled>
+                        Анализировать
+                    </button>
+                </div>
+            </section>
+
+            <!-- Индикатор загрузки -->
+            <div id="loading" class="loading-indicator" style="display: none;">
+                <div class="spinner"></div>
+                <p>Анализируем фото...</p>
+            </div>
+
+            <!-- Результаты -->
+            <section class="results-section">
+                <div id="results"></div>
+            </section>
+        </main>
+
+        <footer>
+            <p>
+                Demo version
+            </p>
+            <small>
+                Это приложение помогает оценить эргономику, но не заменяет консультацию специалиста
+            </small>
+        </footer>
+    </div>
+
+    <!-- Модальное окно со справкой -->
+    <div id="helpModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="modal-close" id="modalClose">&times;</span>
+            <h2>Как получить API ключ?</h2>
+
+            <div class="help-section">
+                <h3>📘 Anthropic Claude</h3>
+                <ol>
+                    <li>Перейдите на <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a></li>
+                    <li>Зарегистрируйтесь или войдите в аккаунт</li>
+                    <li>Откройте раздел <strong>API Keys</strong></li>
+                    <li>Нажмите <strong>Create Key</strong></li>
+                    <li>Скопируйте ключ (он начинается с <code>sk-ant-...</code>)</li>
+                    <li>Вставьте его в поле "API ключ" выше</li>
+                </ol>
+                <p class="info-note">💡 Claude предоставляет $5 бесплатных кредитов для новых пользователей</p>
+            </div>
+
+            <div class="help-section">
+                <h3>🤖 OpenAI GPT-4</h3>
+                <ol>
+                    <li>Перейдите на <a href="https://platform.openai.com/" target="_blank">platform.openai.com</a></li>
+                    <li>Зарегистрируйтесь или войдите в аккаунт</li>
+                    <li>Откройте <strong>API Keys</strong> в меню слева</li>
+                    <li>Нажмите <strong>Create new secret key</strong></li>
+                    <li>Скопируйте ключ (он начинается с <code>sk-...</code>)</li>
+                    <li>Вставьте его в поле "API ключ" выше</li>
+                </ol>
+                <p class="info-note">⚠️ Для GPT-4 Vision требуется платный аккаунт с пополненным балансом</p>
+            </div>
+
+            <div class="help-section">
+                <h3>🔒 Безопасность</h3>
+                <ul>
+                    <li>API ключ хранится только в вашем браузере (localStorage)</li>
+                    <li>Ключ отправляется напрямую в API провайдера, не на сторонние серверы</li>
+                    <li>Никогда не делитесь своим API ключом</li>
+                    <li>Вы можете удалить ключ в любой момент, очистив localStorage браузера</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>💰 Стоимость</h3>
+                <p><strong>Claude 3.5 Sonnet:</strong> ~$3 за 1000 изображений</p>
+                <p><strong>GPT-4 Vision:</strong> ~$0.01-0.03 за изображение</p>
+                <p class="info-note">Цены приблизительные и зависят от размера изображения</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подключаем скрипты в правильном порядке -->
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
