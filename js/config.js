@@ -1,22 +1,31 @@
 // Конфигурация моделей AI и API endpoints
 const CONFIG = {
+  // URL вашего Cloudflare Worker
+  workerUrl: 'https://slingcheck-proxy.04848.workers.dev',
+
   // Определение окружения
   isProduction: () => {
-    return window.location.hostname !== 'localhost' &&
-           window.location.hostname !== '127.0.0.1' &&
-           window.location.hostname !== '';
+    // Production только если домен содержит github.io или другой production домен
+    const hostname = window.location.hostname;
+    return hostname.includes('github.io') ||
+           hostname.includes('githubusercontent.com') ||
+           hostname.includes('pages.dev'); // Cloudflare Pages
+  },
+
+  // Получение хоста для прокси (используется текущий хост)
+  getProxyHost: () => {
+    // Используем текущий хост для прокси, чтобы работало с разных устройств в локальной сети
+    return `${window.location.protocol}//${window.location.hostname}:8002`;
   },
 
   // Получение endpoint в зависимости от окружения
   getEndpoint: (provider, path) => {
     if (CONFIG.isProduction()) {
-      // Production: прямые запросы к API
-      return provider === 'anthropic'
-        ? `https://api.anthropic.com${path}`
-        : `https://api.openai.com${path}`;
+      // Production: через Cloudflare Worker
+      return `${CONFIG.workerUrl}/${provider}${path}`;
     } else {
-      // Development: через локальный прокси
-      return `http://localhost:8002/${provider}${path}`;
+      // Development: через локальный прокси на том же хосте
+      return `${CONFIG.getProxyHost()}/${provider}${path}`;
     }
   },
 
