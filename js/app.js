@@ -318,5 +318,11 @@ class SlingCheckApp {
 
 // Инициализация приложения после загрузки DOM
 document.addEventListener('DOMContentLoaded', () => {
+  // Информация об окружении
+  const env = CONFIG.isProduction() ? 'PRODUCTION' : 'DEVELOPMENT';
+  const endpoint = CONFIG.models.claude.endpoint;
+  console.log(`🚀 SlingCheck запущен в режиме: ${env}`);
+  console.log(`📡 API Endpoint (Claude): ${endpoint}`);
+
   window.app = new SlingCheckApp();
 });

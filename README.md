@@ -92,34 +92,6 @@ python3 -m http.server 8001
 4. Нажмите "Анализировать"
 5. Получите детальную оценку и рекомендации
 
-## Деплой на GitHub Pages
-
-### Подготовка
-
-1. Создайте репозиторий на GitHub
-2. Инициализируйте git и запушьте код:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: SlingCheck MVP"
-git branch -M main
-git remote add origin https://github.com/yourusername/sling-check.git
-git push -u origin main
-```
-
-### Включение GitHub Pages
-
-1. Перейдите в Settings репозитория
-2. В разделе "Pages" выберите:
-   - Source: `Deploy from a branch`
-   - Branch: `main`
-   - Folder: `/ (root)`
-3. Сохраните настройки
-
-Через несколько минут приложение будет доступно по адресу:
-`https://yourusername.github.io/sling-check/`
-
 ## Конфигурация
 
 ### Изменение промптов

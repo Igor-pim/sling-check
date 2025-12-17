@@ -1,5 +1,25 @@
 // Конфигурация моделей AI и API endpoints
 const CONFIG = {
+  // Определение окружения
+  isProduction: () => {
+    return window.location.hostname !== 'localhost' &&
+           window.location.hostname !== '127.0.0.1' &&
+           window.location.hostname !== '';
+  },
+
+  // Получение endpoint в зависимости от окружения
+  getEndpoint: (provider, path) => {
+    if (CONFIG.isProduction()) {
+      // Production: прямые запросы к API
+      return provider === 'anthropic'
+        ? `https://api.anthropic.com${path}`
+        : `https://api.openai.com${path}`;
+    } else {
+      // Development: через локальный прокси
+      return `http://localhost:8002/${provider}${path}`;
+    }
+  },
+
   // Доступные модели для анализа
   models: {
     claude: {
@@ -8,7 +28,9 @@ const CONFIG = {
       provider: 'anthropic',
       maxTokens: 4096,
       supportsVision: true,
-      endpoint: 'http://localhost:8002/anthropic/v1/messages',
+      get endpoint() {
+        return CONFIG.getEndpoint('anthropic', '/v1/messages');
+      },
       apiKeyStorageKey: 'slingcheck_claude_api_key'
     },
     claude4: {
@@ -17,7 +39,9 @@ const CONFIG = {
       provider: 'anthropic',
       maxTokens: 8192,
       supportsVision: true,
-      endpoint: 'http://localhost:8002/anthropic/v1/messages',
+      get endpoint() {
+        return CONFIG.getEndpoint('anthropic', '/v1/messages');
+      },
       apiKeyStorageKey: 'slingcheck_claude_api_key'
     },
     gpt4: {
@@ -26,7 +50,9 @@ const CONFIG = {
       provider: 'openai',
       maxTokens: 4096,
       supportsVision: true,
-      endpoint: 'http://localhost:8002/openai/v1/chat/completions',
+      get endpoint() {
+        return CONFIG.getEndpoint('openai', '/v1/chat/completions');
+      },
       apiKeyStorageKey: 'slingcheck_openai_api_key'
     },
     gpt4o: {
@@ -35,7 +61,9 @@ const CONFIG = {
       provider: 'openai',
       maxTokens: 4096,
       supportsVision: true,
-      endpoint: 'http://localhost:8002/openai/v1/chat/completions',
+      get endpoint() {
+        return CONFIG.getEndpoint('openai', '/v1/chat/completions');
+      },
       apiKeyStorageKey: 'slingcheck_openai_api_key'
     }
   },
