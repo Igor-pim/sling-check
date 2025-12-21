@@ -49,6 +49,7 @@ class SlingCheckApp {
       manualPositionEnabled: document.getElementById('manualPositionEnabled'),
       manualPositionSection: document.getElementById('manualPositionSection'),
       manualPosition: document.getElementById('manualPosition'),
+      manualAge: document.getElementById('manualAge'),
       manualLegs: document.getElementById('manualLegs')
     };
 
@@ -270,13 +271,14 @@ class SlingCheckApp {
     }
     
     const position = this.elements.manualPosition?.value;
-    const legs = this.elements.manualLegs?.value || null; // null если не выбрано
+    const age = this.elements.manualAge?.value || null;
+    const legs = this.elements.manualLegs?.value || null;
     
     if (!position) {
       return null;
     }
     
-    return { position, legs };
+    return { position, age, legs };
   }
 
   // Обработка изменения промптов
@@ -405,12 +407,14 @@ class SlingCheckApp {
       // Если указана ручная позиция — используем специальный режим
       if (manualData) {
         const legsText = manualData.legs ? manualData.legs : 'определит модель';
-        this.updateLoadingText('Анализируем с указанной позицией...', `Позиция: ${manualData.position} | Ноги: ${legsText}`);
+        const ageText = manualData.age ? manualData.age : 'определит модель';
+        this.updateLoadingText('Анализируем с указанной позицией...', `Позиция: ${manualData.position}`);
         result = await aiClient.analyzeWithManualPosition(
           this.selectedImage,
           this.currentModel,
           apiKey,
           manualData.position,
+          manualData.age,
           manualData.legs
         );
       } else {
@@ -464,9 +468,9 @@ class SlingCheckApp {
 
     let infoLine = `Модель: ${model.name}`;
     if (manualData) {
-      infoLine += ` | 📍 Позиция: ${manualData.position}`;
-      if (manualData.legs) {
-        infoLine += ` | Ноги: ${manualData.legs}`;
+      infoLine += ` | 📍 ${manualData.position}`;
+      if (manualData.age) {
+        infoLine += ` | ${manualData.age}`;
       }
     } else {
       infoLine += ` | Режим: ${mode.name}`;
