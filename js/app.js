@@ -3,12 +3,16 @@ class SlingCheckApp {
   constructor() {
     this.selectedImage = null;
     this.currentModel = CONFIG.defaultModel;
+    this.currentMode = CONFIG.defaultAnalysisMode;
     this.apiKeys = this.loadApiKeys();
+    this.useCustomPrompts = false;
 
     this.initElements();
     this.initEventListeners();
     this.setupModelSelector();
+    this.setupModeSelector();
     this.updateUIForModel();
+    this.updateUIForMode();
   }
 
   // Инициализация DOM элементов
@@ -18,24 +22,37 @@ class SlingCheckApp {
       imagePreview: document.getElementById('imagePreview'),
       previewContainer: document.getElementById('previewContainer'),
       uploadBtn: document.getElementById('uploadBtn'),
+      uploadArea: document.getElementById('uploadArea'),
       analyzeBtn: document.getElementById('analyzeBtn'),
+      clearImageBtn: document.getElementById('clearImageBtn'),
       modelSelect: document.getElementById('modelSelect'),
+      modelHint: document.getElementById('modelHint'),
+      modeSelect: document.getElementById('modeSelect'),
+      modeDescription: document.getElementById('modeDescription'),
       apiKeyInput: document.getElementById('apiKeyInput'),
       saveKeyBtn: document.getElementById('saveKeyBtn'),
       resultsContainer: document.getElementById('results'),
       loadingIndicator: document.getElementById('loading'),
+      loadingText: document.getElementById('loadingText'),
+      loadingStep: document.getElementById('loadingStep'),
       helpBtn: document.getElementById('helpBtn'),
       helpModal: document.getElementById('helpModal'),
-      modalClose: document.getElementById('modalClose')
+      modalClose: document.getElementById('modalClose'),
+      // Редактор промптов
+      showPromptEditor: document.getElementById('showPromptEditor'),
+      promptEditorSection: document.getElementById('promptEditorSection'),
+      systemPrompt: document.getElementById('systemPrompt'),
+      userPrompt: document.getElementById('userPrompt'),
+      resetPromptsBtn: document.getElementById('resetPromptsBtn'),
+      copyPromptsBtn: document.getElementById('copyPromptsBtn')
     };
 
-    // Проверяем наличие критических элементов
-    const requiredElements = ['imageInput', 'uploadBtn', 'analyzeBtn', 'modelSelect', 'apiKeyInput'];
-    const missingElements = requiredElements.filter(key => !this.elements[key]);
-
-    if (missingElements.length > 0) {
-      console.error('Отсутствуют необходимые DOM элементы:', missingElements);
-      throw new Error(`Не найдены элементы: ${missingElements.join(', ')}`);
+    // Проверка критических элементов
+    const required = ['imageInput', 'uploadBtn', 'analyzeBtn', 'modelSelect', 'modeSelect', 'apiKeyInput'];
+    const missing = required.filter(key => !this.elements[key]);
+    if (missing.length > 0) {
+      console.error('Отсутствуют элементы:', missing);
+      throw new Error(`Не найдены элементы: ${missing.join(', ')}`);
     }
   }
 
@@ -45,25 +62,27 @@ class SlingCheckApp {
     this.elements.imageInput.addEventListener('change', (e) => this.handleImageSelect(e));
     this.elements.uploadBtn.addEventListener('click', () => this.elements.imageInput.click());
 
+    // Очистка изображения
+    if (this.elements.clearImageBtn) {
+      this.elements.clearImageBtn.addEventListener('click', () => this.clearImage());
+    }
+
     // Drag & Drop
-    const dropZone = document.querySelector('.upload-area');
-    dropZone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      dropZone.classList.add('dragover');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-      dropZone.classList.remove('dragover');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      const files = e.dataTransfer.files;
-      if (files.length > 0) {
-        this.handleImageFile(files[0]);
-      }
-    });
+    const dropZone = this.elements.uploadArea;
+    if (dropZone) {
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          this.handleImageFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
 
     // Анализ
     this.elements.analyzeBtn.addEventListener('click', () => this.analyzeImage());
@@ -74,33 +93,50 @@ class SlingCheckApp {
       this.updateUIForModel();
     });
 
+    // Смена режима
+    this.elements.modeSelect.addEventListener('change', (e) => {
+      this.currentMode = e.target.value;
+      this.updateUIForMode();
+    });
+
     // Сохранение API ключа
     this.elements.saveKeyBtn.addEventListener('click', () => this.saveApiKey());
-
-    // Enter для сохранения ключа
     this.elements.apiKeyInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        this.saveApiKey();
-      }
+      if (e.key === 'Enter') this.saveApiKey();
     });
 
-    // Модальное окно помощи
+    // Модальное окно
     this.elements.helpBtn.addEventListener('click', () => this.openHelpModal());
     this.elements.modalClose.addEventListener('click', () => this.closeHelpModal());
-
-    // Закрытие модального окна при клике вне его
     this.elements.helpModal.addEventListener('click', (e) => {
-      if (e.target === this.elements.helpModal) {
-        this.closeHelpModal();
-      }
+      if (e.target === this.elements.helpModal) this.closeHelpModal();
     });
-
-    // Закрытие модального окна по Escape
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.elements.helpModal.style.display === 'flex') {
         this.closeHelpModal();
       }
     });
+
+    // Редактор промптов
+    if (this.elements.showPromptEditor) {
+      this.elements.showPromptEditor.addEventListener('change', (e) => {
+        this.togglePromptEditor(e.target.checked);
+      });
+    }
+    if (this.elements.resetPromptsBtn) {
+      this.elements.resetPromptsBtn.addEventListener('click', () => this.resetPrompts());
+    }
+    if (this.elements.copyPromptsBtn) {
+      this.elements.copyPromptsBtn.addEventListener('click', () => this.copyPrompts());
+    }
+
+    // Отслеживание изменений в промптах
+    if (this.elements.systemPrompt) {
+      this.elements.systemPrompt.addEventListener('input', () => this.onPromptChange());
+    }
+    if (this.elements.userPrompt) {
+      this.elements.userPrompt.addEventListener('input', () => this.onPromptChange());
+    }
   }
 
   // Настройка селектора моделей
@@ -110,11 +146,25 @@ class SlingCheckApp {
     Object.entries(CONFIG.models).forEach(([key, model]) => {
       const option = document.createElement('option');
       option.value = key;
-      option.textContent = model.name;
+      option.textContent = model.name + (model.recommended ? ' ⭐' : '');
       this.elements.modelSelect.appendChild(option);
     });
 
     this.elements.modelSelect.value = this.currentModel;
+  }
+
+  // Настройка селектора режимов
+  setupModeSelector() {
+    this.elements.modeSelect.innerHTML = '';
+
+    Object.entries(CONFIG.analysisModes).forEach(([key, mode]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = mode.name + (mode.recommended ? ' ⭐' : '');
+      this.elements.modeSelect.appendChild(option);
+    });
+
+    this.elements.modeSelect.value = this.currentMode;
   }
 
   // Обновление UI при смене модели
@@ -130,11 +180,94 @@ class SlingCheckApp {
       this.elements.apiKeyInput.type = 'text';
     }
 
-    // Обновляем placeholder
     this.elements.apiKeyInput.placeholder = `API ключ для ${model.name}`;
+
+    // Подсказка для модели
+    if (this.elements.modelHint) {
+      if (model.recommended) {
+        this.elements.modelHint.textContent = '⭐ Рекомендуется для лучшего качества';
+        this.elements.modelHint.style.color = '#10B981';
+      } else {
+        this.elements.modelHint.textContent = '';
+      }
+    }
   }
 
-  // Загрузка API ключей из localStorage
+  // Обновление UI при смене режима
+  updateUIForMode() {
+    const mode = CONFIG.analysisModes[this.currentMode];
+
+    if (this.elements.modeDescription) {
+      let desc = mode.description;
+      if (mode.steps > 1) {
+        desc += ` (${mode.steps} вызова API)`;
+      }
+      this.elements.modeDescription.textContent = desc;
+    }
+
+    // Обновляем промпты в редакторе
+    this.loadPromptsForMode();
+  }
+
+  // Загрузка промптов для текущего режима
+  loadPromptsForMode() {
+    if (this.currentMode === 'twoStep') {
+      // Для двухэтапного показываем только первый этап
+      const prompts = PROMPTS.twoStep.step1;
+      if (this.elements.systemPrompt) {
+        this.elements.systemPrompt.value = prompts.system;
+      }
+      if (this.elements.userPrompt) {
+        this.elements.userPrompt.value = prompts.user + '\n\n--- ЭТАП 2 генерируется автоматически ---';
+      }
+    } else {
+      const prompts = PROMPTS[this.currentMode];
+      if (prompts && this.elements.systemPrompt) {
+        this.elements.systemPrompt.value = prompts.system;
+      }
+      if (prompts && this.elements.userPrompt) {
+        this.elements.userPrompt.value = prompts.user;
+      }
+    }
+
+    this.useCustomPrompts = false;
+    aiClient.clearCustomPrompts();
+  }
+
+  // Переключение редактора промптов
+  togglePromptEditor(show) {
+    if (this.elements.promptEditorSection) {
+      this.elements.promptEditorSection.style.display = show ? 'block' : 'none';
+      if (show) {
+        this.loadPromptsForMode();
+      }
+    }
+  }
+
+  // Обработка изменения промптов
+  onPromptChange() {
+    this.useCustomPrompts = true;
+    aiClient.setCustomPrompts(
+      this.elements.systemPrompt.value,
+      this.elements.userPrompt.value
+    );
+  }
+
+  // Сброс промптов
+  resetPrompts() {
+    this.loadPromptsForMode();
+    this.showSuccess('Промпты сброшены');
+  }
+
+  // Копирование промптов
+  copyPrompts() {
+    const text = `=== SYSTEM ===\n${this.elements.systemPrompt.value}\n\n=== USER ===\n${this.elements.userPrompt.value}`;
+    navigator.clipboard.writeText(text).then(() => {
+      this.showSuccess('Скопировано в буфер');
+    });
+  }
+
+  // Загрузка API ключей
   loadApiKeys() {
     const keys = {};
     Object.entries(CONFIG.models).forEach(([modelKey, model]) => {
@@ -149,7 +282,6 @@ class SlingCheckApp {
   // Сохранение API ключа
   saveApiKey() {
     const apiKey = this.elements.apiKeyInput.value.trim();
-
     if (!apiKey) {
       this.showError('Введите API ключ');
       return;
@@ -158,28 +290,22 @@ class SlingCheckApp {
     const model = CONFIG.models[this.currentModel];
     localStorage.setItem(model.apiKeyStorageKey, apiKey);
     this.apiKeys[this.currentModel] = apiKey;
-
     this.elements.apiKeyInput.type = 'password';
-    this.showSuccess('API ключ сохранен');
+    this.showSuccess('API ключ сохранён');
   }
 
   // Обработка выбора изображения
   handleImageSelect(event) {
     const file = event.target.files[0];
-    if (file) {
-      this.handleImageFile(file);
-    }
+    if (file) this.handleImageFile(file);
   }
 
-  // Валидация и обработка файла изображения
+  // Валидация и обработка файла
   handleImageFile(file) {
-    // Проверка типа файла
     if (!CONFIG.app.acceptedFormats.includes(file.type)) {
       this.showError(CONFIG.ui.ru.errors.invalidFormat);
       return;
     }
-
-    // Проверка размера
     if (file.size > CONFIG.app.maxImageSize) {
       this.showError(CONFIG.ui.ru.errors.tooLarge);
       return;
@@ -190,21 +316,30 @@ class SlingCheckApp {
     this.elements.analyzeBtn.disabled = false;
   }
 
-  // Отображение превью изображения
+  // Отображение превью
   displayImagePreview(file) {
     const reader = new FileReader();
-
     reader.onload = (e) => {
       this.elements.imagePreview.src = e.target.result;
       this.elements.previewContainer.style.display = 'block';
+      this.elements.uploadArea.style.display = 'none';
     };
-
     reader.readAsDataURL(file);
+  }
+
+  // Очистка изображения
+  clearImage() {
+    this.selectedImage = null;
+    this.elements.imagePreview.src = '';
+    this.elements.previewContainer.style.display = 'none';
+    this.elements.uploadArea.style.display = 'block';
+    this.elements.analyzeBtn.disabled = true;
+    this.elements.imageInput.value = '';
+    this.elements.resultsContainer.innerHTML = '';
   }
 
   // Анализ изображения
   async analyzeImage() {
-    // Проверки
     if (!this.selectedImage) {
       this.showError(CONFIG.ui.ru.errors.noImage);
       return;
@@ -217,20 +352,34 @@ class SlingCheckApp {
       return;
     }
 
-    // Показываем индикатор загрузки
     this.showLoading(true);
     this.elements.analyzeBtn.disabled = true;
     this.elements.resultsContainer.innerHTML = '';
 
     try {
-      // Вызываем API
+      const mode = CONFIG.analysisModes[this.currentMode];
+
+      // Обновляем текст загрузки
+      if (mode.steps > 1) {
+        this.updateLoadingText('Этап 1: Определение позиции...', `Режим: ${mode.name}`);
+      } else {
+        this.updateLoadingText('Анализируем фото...', `Модель: ${CONFIG.models[this.currentModel].name}`);
+      }
+
+      const callbacks = {
+        onStep1Complete: (response, parsed) => {
+          this.updateLoadingText('Этап 2: Полный анализ...', `Позиция: ${parsed.position}`);
+        }
+      };
+
       const result = await aiClient.analyze(
         this.selectedImage,
         this.currentModel,
-        apiKey
+        apiKey,
+        this.currentMode,
+        callbacks
       );
 
-      // Отображаем результат
       this.displayResults(result);
 
     } catch (error) {
@@ -242,46 +391,82 @@ class SlingCheckApp {
     }
   }
 
-  // Отображение результатов анализа
+  // Обновление текста загрузки
+  updateLoadingText(main, sub) {
+    if (this.elements.loadingText) {
+      this.elements.loadingText.textContent = main;
+    }
+    if (this.elements.loadingStep) {
+      this.elements.loadingStep.textContent = sub || '';
+    }
+  }
+
+  // Отображение результатов
   displayResults(analysisText) {
+    const mode = CONFIG.analysisModes[this.currentMode];
+    const model = CONFIG.models[this.currentModel];
+
     this.elements.resultsContainer.innerHTML = `
       <div class="result-card">
-        <h3>Результат анализа</h3>
+        <h3>📋 Результат анализа</h3>
         <div class="analysis-text">${this.formatAnalysis(analysisText)}</div>
         <div class="model-info">
-          <small>Проанализировано с помощью ${CONFIG.models[this.currentModel].name}</small>
+          <small>
+            Модель: ${model.name} | Режим: ${mode.name}
+            ${this.useCustomPrompts ? ' | ⚠️ Кастомный промпт' : ''}
+          </small>
         </div>
       </div>
     `;
 
-    // Прокручиваем к результатам
     this.elements.resultsContainer.scrollIntoView({ behavior: 'smooth' });
   }
 
-  // Форматирование текста анализа (markdown-like)
+  // Форматирование текста анализа
   formatAnalysis(text) {
-    // Простое форматирование для читаемости
-    return '<p>' + text
+    return '<div class="markdown-content">' + text
+      // Headers
+      .replace(/^### (.*$)/gm, '<h4>$1</h4>')
+      .replace(/^## (.*$)/gm, '<h3>$1</h3>')
+      .replace(/^# (.*$)/gm, '<h2>$1</h2>')
+      // Bold and italic
+      .replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      // Code blocks
+      .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Tables (simple)
+      .replace(/\|(.+)\|/g, (match) => {
+        const cells = match.split('|').filter(c => c.trim());
+        if (cells.every(c => c.trim().match(/^[-:]+$/))) {
+          return ''; // Skip separator row
+        }
+        const cellTags = cells.map(c => `<td>${c.trim()}</td>`).join('');
+        return `<tr>${cellTags}</tr>`;
+      })
+      // Checkboxes
+      .replace(/\[✓\]/g, '✅')
+      .replace(/\[ \]/g, '⬜')
+      .replace(/\[x\]/gi, '✅')
+      // Horizontal rules
+      .replace(/^---$/gm, '<hr>')
+      // Line breaks and paragraphs
       .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br>') + '</p>';
+      .replace(/\n/g, '<br>')
+      + '</div>';
   }
 
-  // Показ/скрытие индикатора загрузки
+  // Показ/скрытие загрузки
   showLoading(show) {
-    if (show) {
-      this.elements.loadingIndicator.style.display = 'flex';
-    } else {
-      this.elements.loadingIndicator.style.display = 'none';
-    }
+    this.elements.loadingIndicator.style.display = show ? 'flex' : 'none';
   }
 
   // Показ ошибки
   showError(message) {
     this.elements.resultsContainer.innerHTML = `
       <div class="error-message">
-        <strong>Ошибка:</strong> ${message}
+        <strong>❌ Ошибка:</strong> ${message}
       </div>
     `;
   }
@@ -290,39 +475,34 @@ class SlingCheckApp {
   showSuccess(message) {
     const toast = document.createElement('div');
     toast.className = 'success-toast';
-    toast.textContent = message;
+    toast.textContent = '✅ ' + message;
     document.body.appendChild(toast);
 
-    setTimeout(() => {
-      toast.classList.add('show');
-    }, 100);
-
+    setTimeout(() => toast.classList.add('show'), 100);
     setTimeout(() => {
       toast.classList.remove('show');
       setTimeout(() => toast.remove(), 300);
     }, 2000);
   }
 
-  // Открытие модального окна помощи
+  // Модальное окно
   openHelpModal() {
     this.elements.helpModal.style.display = 'flex';
-    document.body.style.overflow = 'hidden'; // Блокируем прокрутку фона
+    document.body.style.overflow = 'hidden';
   }
 
-  // Закрытие модального окна помощи
   closeHelpModal() {
     this.elements.helpModal.style.display = 'none';
-    document.body.style.overflow = ''; // Восстанавливаем прокрутку
+    document.body.style.overflow = '';
   }
 }
 
-// Инициализация приложения после загрузки DOM
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
-  // Информация об окружении
   const env = CONFIG.isProduction() ? 'PRODUCTION' : 'DEVELOPMENT';
-  const endpoint = CONFIG.models.claude.endpoint;
-  console.log(`🚀 SlingCheck запущен в режиме: ${env}`);
-  console.log(`📡 API Endpoint (Claude): ${endpoint}`);
+  console.log(`🚀 SlingCheck v2.0 запущен в режиме: ${env}`);
+  console.log(`📊 Доступные модели:`, Object.keys(CONFIG.models).join(', '));
+  console.log(`🔧 Режимы анализа:`, Object.keys(CONFIG.analysisModes).join(', '));
 
   window.app = new SlingCheckApp();
 });
