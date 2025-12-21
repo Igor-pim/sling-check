@@ -60,6 +60,41 @@
                                     <span>Показать редактор промптов (для отладки)</span>
                                 </label>
                             </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="manualPositionEnabled">
+                                    <span>Указать позицию вручную (если AI ошибается)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ручной выбор позиции (скрыт по умолчанию) -->
+                    <div id="manualPositionSection" class="manual-position-section" style="display: none;">
+                        <h3>📍 Укажите позицию вручную</h3>
+                        <p class="hint">AI иногда путает позицию на фото сбоку. Укажите где ребёнок, остальное модель определит сама.</p>
+                        
+                        <div class="position-options">
+                            <div class="form-group">
+                                <label for="manualPosition">Где ребёнок? *</label>
+                                <select id="manualPosition">
+                                    <option value="">-- Выберите --</option>
+                                    <option value="СПЕРЕДИ_ЛИЦОМ_К_ВЗРОСЛОМУ">Спереди, лицом к взрослому</option>
+                                    <option value="СПЕРЕДИ_ЛИЦОМ_ВПЕРЁД">Спереди, лицом вперёд (forward-facing)</option>
+                                    <option value="НА_СПИНЕ">На спине взрослого</option>
+                                    <option value="НА_БЕДРЕ">На бедре</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="manualLegs">Положение ног (опционально)</label>
+                                <select id="manualLegs">
+                                    <option value="">Модель определит сама</option>
+                                    <option value="М_ПОЗИЦИЯ_ОК">Колени выше попы (М-позиция ОК)</option>
+                                    <option value="СВИСАЮТ_ВНИЗ">Ноги свисают вниз (нет М-позиции)</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -67,7 +102,7 @@
                     <div id="promptEditorSection" class="prompt-editor-section" style="display: none;">
                         <h3>📝 Редактор промптов</h3>
                         <p class="hint">Изменения применяются только к текущей сессии</p>
-
+                        
                         <div class="form-group">
                             <label for="systemPrompt">System prompt:</label>
                             <textarea id="systemPrompt" rows="4" placeholder="System prompt..."></textarea>
@@ -129,7 +164,7 @@
             <p>SlingCheck v2.0 — Demo version</p>
             <small>
                 Это приложение помогает оценить эргономику, но не заменяет консультацию специалиста.
-                <br>Основано на стандартах <a href="https://babyslingsafety.co.uk/" target="_blank">T.I.C.K.S.</a>
+                <br>Основано на стандартах <a href="https://babyslingsafety.co.uk/" target="_blank">T.I.C.K.S.</a> 
                 и <a href="https://hipdysplasia.org/baby-wearing/" target="_blank">IHDI</a>.
             </small>
         </footer>

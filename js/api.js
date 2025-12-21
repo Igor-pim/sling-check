@@ -190,21 +190,31 @@ class AIClient {
   parseStep1Response(response) {
     const lines = response.split('\n');
     const result = {
-      carrier: '',
-      child: '',
+      viewpoint: '',
+      childWhere: '',
+      childLooking: '',
       legs: '',
       position: ''
     };
 
     for (const line of lines) {
-      if (line.startsWith('ПЕРЕНОСКА:')) {
-        result.carrier = line.replace('ПЕРЕНОСКА:', '').trim();
-      } else if (line.startsWith('РЕБЁНОК:')) {
-        result.child = line.replace('РЕБЁНОК:', '').trim();
-      } else if (line.startsWith('НОГИ:')) {
-        result.legs = line.replace('НОГИ:', '').trim();
-      } else if (line.startsWith('ПОЗИЦИЯ:')) {
-        result.position = line.replace('ПОЗИЦИЯ:', '').trim();
+      const trimmed = line.trim();
+      if (trimmed.startsWith('РАКУРС:')) {
+        result.viewpoint = trimmed.replace('РАКУРС:', '').trim();
+      } else if (trimmed.startsWith('РЕБЁНОК_ГДЕ:')) {
+        result.childWhere = trimmed.replace('РЕБЁНОК_ГДЕ:', '').trim();
+      } else if (trimmed.startsWith('РЕБЁНОК_КУДА_СМОТРИТ:')) {
+        result.childLooking = trimmed.replace('РЕБЁНОК_КУДА_СМОТРИТ:', '').trim();
+      } else if (trimmed.startsWith('НОГИ:')) {
+        result.legs = trimmed.replace('НОГИ:', '').trim();
+      } else if (trimmed.startsWith('ПОЗИЦИЯ:')) {
+        result.position = trimmed.replace('ПОЗИЦИЯ:', '').trim();
+      }
+      // Поддержка старого формата
+      else if (trimmed.startsWith('ПЕРЕНОСКА:')) {
+        result.childWhere = trimmed.replace('ПЕРЕНОСКА:', '').trim();
+      } else if (trimmed.startsWith('РЕБЁНОК:')) {
+        result.childLooking = trimmed.replace('РЕБЁНОК:', '').trim();
       }
     }
 
@@ -250,7 +260,7 @@ class AIClient {
     );
 
     const parsed = this.parseStep1Response(step1Response);
-
+    
     // Колбэк для отображения промежуточного результата
     if (onStep1Complete) {
       onStep1Complete(step1Response, parsed);
@@ -258,7 +268,7 @@ class AIClient {
 
     // Этап 2: Полный анализ с известной позицией
     const step2UserPrompt = prompts.step2.getUserPrompt(parsed.position, parsed.legs);
-
+    
     const step2Response = await this.callAPI(
       base64Image,
       mediaType,
@@ -274,6 +284,102 @@ class AIClient {
       step2: step2Response,
       combined: `## 📍 ЭТАП 1: Определение позиции\n\n${step1Response}\n\n---\n\n## 📋 ЭТАП 2: Полный анализ\n\n${step2Response}`
     };
+  }
+
+  // Анализ с ручной позицией (пропускаем определение позиции)
+  async analyzeWithManualPosition(imageFile, modelKey, apiKey, position, legs) {
+    const model = CONFIG.models[modelKey];
+
+    const processedImage = await this.compressImage(imageFile);
+    const base64Image = await this.imageToBase64(processedImage);
+    const mediaType = processedImage.type;
+
+    let systemPrompt, userPrompt;
+
+    if (legs) {
+      // Если ноги указаны — используем стандартный промпт второго этапа
+      systemPrompt = PROMPTS.twoStep.step2.system;
+      userPrompt = PROMPTS.twoStep.step2.getUserPrompt(position, legs);
+    } else {
+      // Если ноги НЕ указаны — модель должна определить сама
+      systemPrompt = `Вы — консультант по слингоношению. 
+Позиция ребёнка УЖЕ ОПРЕДЕЛЕНА пользователем: ${position}
+НЕ ПЫТАЙТЕСЬ переопределить позицию — она указана правильно.
+
+Ваша задача:
+1. Определить положение ног (М-позиция или нет)
+2. Провести анализ T.I.C.K.S.
+
+М-ПОЗИЦИЯ — оценивайте честно по фото:
+- Колени ВЫШЕ попы, бёдра разведены = ✅ М-позиция OK
+- Колени НА УРОВНЕ попы = ⚠️ Частичная
+- Колени НИЖЕ попы, ноги свисают вертикально = ❌ НЕТ М-позиции
+
+ЯЗЫК: Только "взрослый", "родитель" (не мама/папа).`;
+
+      userPrompt = `## АНАЛИЗ СЛИНГОНОШЕНИЯ
+
+**Позиция (указана пользователем):** ${position}
+
+### ШАГ 1: ОПРЕДЕЛИ ПОЛОЖЕНИЕ НОГ ПО ФОТО
+
+Посмотри на фото и определи:
+- Как расположены ноги ребёнка?
+- Колени выше, на уровне или ниже попы?
+- Ноги согнуты и разведены или свисают вниз?
+
+**Положение ног:** [опиши что видишь]
+**М-позиция:** ✅ OK / ⚠️ Частичная / ❌ Нет
+
+---
+
+### ШАГ 2: T.I.C.K.S. АНАЛИЗ
+
+#### T — Плотность
+[оцени]
+
+#### I — Видимость лица
+[оцени]
+
+#### C — Высота
+[оцени]
+
+#### K — Подбородок
+[оцени]
+
+#### S — Поддержка спины
+[оцени]
+
+---
+
+${position.includes('ВПЕРЁД') ? `### ⚠️ Forward-facing — особенности:
+- Только 6+ месяцев
+- Только бодрствующий ребёнок
+- Короткие периоды (15-20 мин)
+
+---` : ''}
+
+## ИТОГ
+
+**Оценка:** X/10
+**Статус:** 🟢 БЕЗОПАСНО / 🟡 КОРРЕКТИРОВКА / 🔴 ОПАСНО
+
+**✅ Хорошо:**
+**❌ Исправить:**
+**📋 Действия:**`;
+    }
+
+    const response = await this.callAPI(
+      base64Image,
+      mediaType,
+      systemPrompt,
+      userPrompt,
+      model,
+      apiKey
+    );
+
+    const legsInfo = legs ? `**Ноги:** ${legs}` : '**Ноги:** определяет модель';
+    return `## 📍 Позиция указана вручную\n\n**Позиция:** ${position}\n${legsInfo}\n\n---\n\n${response}`;
   }
 
   // Главный метод анализа

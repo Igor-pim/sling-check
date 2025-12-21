@@ -44,7 +44,12 @@ class SlingCheckApp {
       systemPrompt: document.getElementById('systemPrompt'),
       userPrompt: document.getElementById('userPrompt'),
       resetPromptsBtn: document.getElementById('resetPromptsBtn'),
-      copyPromptsBtn: document.getElementById('copyPromptsBtn')
+      copyPromptsBtn: document.getElementById('copyPromptsBtn'),
+      // Ручной выбор позиции
+      manualPositionEnabled: document.getElementById('manualPositionEnabled'),
+      manualPositionSection: document.getElementById('manualPositionSection'),
+      manualPosition: document.getElementById('manualPosition'),
+      manualLegs: document.getElementById('manualLegs')
     };
 
     // Проверка критических элементов
@@ -61,7 +66,7 @@ class SlingCheckApp {
     // Загрузка изображения
     this.elements.imageInput.addEventListener('change', (e) => this.handleImageSelect(e));
     this.elements.uploadBtn.addEventListener('click', () => this.elements.imageInput.click());
-
+    
     // Очистка изображения
     if (this.elements.clearImageBtn) {
       this.elements.clearImageBtn.addEventListener('click', () => this.clearImage());
@@ -137,6 +142,13 @@ class SlingCheckApp {
     if (this.elements.userPrompt) {
       this.elements.userPrompt.addEventListener('input', () => this.onPromptChange());
     }
+
+    // Ручной выбор позиции
+    if (this.elements.manualPositionEnabled) {
+      this.elements.manualPositionEnabled.addEventListener('change', (e) => {
+        this.toggleManualPosition(e.target.checked);
+      });
+    }
   }
 
   // Настройка селектора моделей
@@ -181,7 +193,7 @@ class SlingCheckApp {
     }
 
     this.elements.apiKeyInput.placeholder = `API ключ для ${model.name}`;
-
+    
     // Подсказка для модели
     if (this.elements.modelHint) {
       if (model.recommended) {
@@ -196,7 +208,7 @@ class SlingCheckApp {
   // Обновление UI при смене режима
   updateUIForMode() {
     const mode = CONFIG.analysisModes[this.currentMode];
-
+    
     if (this.elements.modeDescription) {
       let desc = mode.description;
       if (mode.steps > 1) {
@@ -229,7 +241,7 @@ class SlingCheckApp {
         this.elements.userPrompt.value = prompts.user;
       }
     }
-
+    
     this.useCustomPrompts = false;
     aiClient.clearCustomPrompts();
   }
@@ -242,6 +254,29 @@ class SlingCheckApp {
         this.loadPromptsForMode();
       }
     }
+  }
+
+  // Переключение ручного выбора позиции
+  toggleManualPosition(show) {
+    if (this.elements.manualPositionSection) {
+      this.elements.manualPositionSection.style.display = show ? 'block' : 'none';
+    }
+  }
+
+  // Получение ручной позиции
+  getManualPositionData() {
+    if (!this.elements.manualPositionEnabled?.checked) {
+      return null;
+    }
+    
+    const position = this.elements.manualPosition?.value;
+    const legs = this.elements.manualLegs?.value || null; // null если не выбрано
+    
+    if (!position) {
+      return null;
+    }
+    
+    return { position, legs };
   }
 
   // Обработка изменения промптов
@@ -352,35 +387,56 @@ class SlingCheckApp {
       return;
     }
 
+    // Проверяем ручную позицию
+    const manualData = this.getManualPositionData();
+    if (this.elements.manualPositionEnabled?.checked && !manualData?.position) {
+      this.showError('Выберите позицию ребёнка');
+      return;
+    }
+
     this.showLoading(true);
     this.elements.analyzeBtn.disabled = true;
     this.elements.resultsContainer.innerHTML = '';
 
     try {
       const mode = CONFIG.analysisModes[this.currentMode];
+      let result;
 
-      // Обновляем текст загрузки
-      if (mode.steps > 1) {
-        this.updateLoadingText('Этап 1: Определение позиции...', `Режим: ${mode.name}`);
+      // Если указана ручная позиция — используем специальный режим
+      if (manualData) {
+        const legsText = manualData.legs ? manualData.legs : 'определит модель';
+        this.updateLoadingText('Анализируем с указанной позицией...', `Позиция: ${manualData.position} | Ноги: ${legsText}`);
+        result = await aiClient.analyzeWithManualPosition(
+          this.selectedImage,
+          this.currentModel,
+          apiKey,
+          manualData.position,
+          manualData.legs
+        );
       } else {
-        this.updateLoadingText('Анализируем фото...', `Модель: ${CONFIG.models[this.currentModel].name}`);
+        // Обычный анализ
+        if (mode.steps > 1) {
+          this.updateLoadingText('Этап 1: Определение позиции...', `Режим: ${mode.name}`);
+        } else {
+          this.updateLoadingText('Анализируем фото...', `Модель: ${CONFIG.models[this.currentModel].name}`);
+        }
+
+        const callbacks = {
+          onStep1Complete: (response, parsed) => {
+            this.updateLoadingText('Этап 2: Полный анализ...', `Позиция: ${parsed.position}`);
+          }
+        };
+
+        result = await aiClient.analyze(
+          this.selectedImage,
+          this.currentModel,
+          apiKey,
+          this.currentMode,
+          callbacks
+        );
       }
 
-      const callbacks = {
-        onStep1Complete: (response, parsed) => {
-          this.updateLoadingText('Этап 2: Полный анализ...', `Позиция: ${parsed.position}`);
-        }
-      };
-
-      const result = await aiClient.analyze(
-        this.selectedImage,
-        this.currentModel,
-        apiKey,
-        this.currentMode,
-        callbacks
-      );
-
-      this.displayResults(result);
+      this.displayResults(result, manualData);
 
     } catch (error) {
       console.error('Ошибка анализа:', error);
@@ -402,19 +458,29 @@ class SlingCheckApp {
   }
 
   // Отображение результатов
-  displayResults(analysisText) {
+  displayResults(analysisText, manualData = null) {
     const mode = CONFIG.analysisModes[this.currentMode];
     const model = CONFIG.models[this.currentModel];
+
+    let infoLine = `Модель: ${model.name}`;
+    if (manualData) {
+      infoLine += ` | 📍 Позиция: ${manualData.position}`;
+      if (manualData.legs) {
+        infoLine += ` | Ноги: ${manualData.legs}`;
+      }
+    } else {
+      infoLine += ` | Режим: ${mode.name}`;
+    }
+    if (this.useCustomPrompts) {
+      infoLine += ' | ⚠️ Кастомный промпт';
+    }
 
     this.elements.resultsContainer.innerHTML = `
       <div class="result-card">
         <h3>📋 Результат анализа</h3>
         <div class="analysis-text">${this.formatAnalysis(analysisText)}</div>
         <div class="model-info">
-          <small>
-            Модель: ${model.name} | Режим: ${mode.name}
-            ${this.useCustomPrompts ? ' | ⚠️ Кастомный промпт' : ''}
-          </small>
+          <small>${infoLine}</small>
         </div>
       </div>
     `;

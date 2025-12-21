@@ -190,6 +190,34 @@ section {
     margin-top: 15px;
 }
 
+/* Manual Position Section */
+.manual-position-section {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #FEF3C7;
+    border: 2px solid var(--warning-color);
+    border-radius: var(--border-radius);
+}
+
+.manual-position-section h3 {
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+.position-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 15px;
+}
+
+@media (max-width: 600px) {
+    .position-options {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Buttons */
 .btn {
     padding: 12px 24px;
