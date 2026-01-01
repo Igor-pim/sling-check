@@ -1,7 +1,14 @@
-// Основная логика приложения SlingCheck
+// Основная логика приложения SlingCheck v3.0
+// Поддержка загрузки 3 фото (спереди, сзади, сбоку)
 class SlingCheckApp {
   constructor() {
-    this.selectedImage = null;
+    // Хранилище загруженных изображений
+    this.images = {
+      front: null,
+      back: null,
+      side: null
+    };
+
     this.currentModel = CONFIG.defaultModel;
     this.currentMode = CONFIG.defaultAnalysisMode;
     this.apiKeys = this.loadApiKeys();
@@ -18,13 +25,37 @@ class SlingCheckApp {
   // Инициализация DOM элементов
   initElements() {
     this.elements = {
-      imageInput: document.getElementById('imageInput'),
-      imagePreview: document.getElementById('imagePreview'),
-      previewContainer: document.getElementById('previewContainer'),
-      uploadBtn: document.getElementById('uploadBtn'),
-      uploadArea: document.getElementById('uploadArea'),
+      // Информация о ребёнке
+      childAge: document.getElementById('childAge'),
+      childWeight: document.getElementById('childWeight'),
+
+      // Загрузка фото - спереди
+      imageInputFront: document.getElementById('imageInputFront'),
+      uploadBtnFront: document.getElementById('uploadBtnFront'),
+      uploadAreaFront: document.getElementById('uploadAreaFront'),
+      previewSlotFront: document.getElementById('previewSlotFront'),
+      imagePreviewFront: document.getElementById('imagePreviewFront'),
+      clearBtnFront: document.getElementById('clearBtnFront'),
+
+      // Загрузка фото - сзади
+      imageInputBack: document.getElementById('imageInputBack'),
+      uploadBtnBack: document.getElementById('uploadBtnBack'),
+      uploadAreaBack: document.getElementById('uploadAreaBack'),
+      previewSlotBack: document.getElementById('previewSlotBack'),
+      imagePreviewBack: document.getElementById('imagePreviewBack'),
+      clearBtnBack: document.getElementById('clearBtnBack'),
+
+      // Загрузка фото - сбоку
+      imageInputSide: document.getElementById('imageInputSide'),
+      uploadBtnSide: document.getElementById('uploadBtnSide'),
+      uploadAreaSide: document.getElementById('uploadAreaSide'),
+      previewSlotSide: document.getElementById('previewSlotSide'),
+      imagePreviewSide: document.getElementById('imagePreviewSide'),
+      clearBtnSide: document.getElementById('clearBtnSide'),
+
+      // Основные элементы управления
       analyzeBtn: document.getElementById('analyzeBtn'),
-      clearImageBtn: document.getElementById('clearImageBtn'),
+      clearAllBtn: document.getElementById('clearAllBtn'),
       modelSelect: document.getElementById('modelSelect'),
       modelHint: document.getElementById('modelHint'),
       modeSelect: document.getElementById('modeSelect'),
@@ -38,6 +69,7 @@ class SlingCheckApp {
       helpBtn: document.getElementById('helpBtn'),
       helpModal: document.getElementById('helpModal'),
       modalClose: document.getElementById('modalClose'),
+
       // Редактор промптов
       showPromptEditor: document.getElementById('showPromptEditor'),
       promptEditorSection: document.getElementById('promptEditorSection'),
@@ -45,6 +77,7 @@ class SlingCheckApp {
       userPrompt: document.getElementById('userPrompt'),
       resetPromptsBtn: document.getElementById('resetPromptsBtn'),
       copyPromptsBtn: document.getElementById('copyPromptsBtn'),
+
       // Ручной выбор позиции
       manualPositionEnabled: document.getElementById('manualPositionEnabled'),
       manualPositionSection: document.getElementById('manualPositionSection'),
@@ -54,7 +87,7 @@ class SlingCheckApp {
     };
 
     // Проверка критических элементов
-    const required = ['imageInput', 'uploadBtn', 'analyzeBtn', 'modelSelect', 'modeSelect', 'apiKeyInput'];
+    const required = ['analyzeBtn', 'modelSelect', 'modeSelect', 'apiKeyInput'];
     const missing = required.filter(key => !this.elements[key]);
     if (missing.length > 0) {
       console.error('Отсутствуют элементы:', missing);
@@ -64,34 +97,18 @@ class SlingCheckApp {
 
   // Настройка обработчиков событий
   initEventListeners() {
-    // Загрузка изображения
-    this.elements.imageInput.addEventListener('change', (e) => this.handleImageSelect(e));
-    this.elements.uploadBtn.addEventListener('click', () => this.elements.imageInput.click());
-    
-    // Очистка изображения
-    if (this.elements.clearImageBtn) {
-      this.elements.clearImageBtn.addEventListener('click', () => this.clearImage());
-    }
+    // Загрузка изображений - спереди
+    this.setupImageSlot('Front', 'front');
+    this.setupImageSlot('Back', 'back');
+    this.setupImageSlot('Side', 'side');
 
-    // Drag & Drop
-    const dropZone = this.elements.uploadArea;
-    if (dropZone) {
-      dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-      });
-      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
-          this.handleImageFile(e.dataTransfer.files[0]);
-        }
-      });
+    // Очистка всех
+    if (this.elements.clearAllBtn) {
+      this.elements.clearAllBtn.addEventListener('click', () => this.clearAllImages());
     }
 
     // Анализ
-    this.elements.analyzeBtn.addEventListener('click', () => this.analyzeImage());
+    this.elements.analyzeBtn.addEventListener('click', () => this.analyzeImages());
 
     // Смена модели
     this.elements.modelSelect.addEventListener('change', (e) => {
@@ -152,6 +169,133 @@ class SlingCheckApp {
     }
   }
 
+  // Настройка слота загрузки изображения
+  setupImageSlot(suffix, slot) {
+    const input = this.elements[`imageInput${suffix}`];
+    const btn = this.elements[`uploadBtn${suffix}`];
+    const uploadArea = this.elements[`uploadArea${suffix}`];
+    const previewSlot = this.elements[`previewSlot${suffix}`];
+    const preview = this.elements[`imagePreview${suffix}`];
+    const clearBtn = this.elements[`clearBtn${suffix}`];
+
+    if (!input || !btn) return;
+
+    // Клик на кнопку
+    btn.addEventListener('click', () => input.click());
+
+    // Выбор файла
+    input.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        this.handleImageFile(e.target.files[0], slot);
+      }
+    });
+
+    // Drag & Drop
+    if (uploadArea) {
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+      });
+      uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+          this.handleImageFile(e.dataTransfer.files[0], slot);
+        }
+      });
+    }
+
+    // Очистка
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => this.clearImage(slot));
+    }
+  }
+
+  // Валидация и обработка файла
+  handleImageFile(file, slot) {
+    if (!CONFIG.app.acceptedFormats.includes(file.type)) {
+      this.showError(CONFIG.ui.ru.errors.invalidFormat);
+      return;
+    }
+    if (file.size > CONFIG.app.maxImageSize) {
+      this.showError(CONFIG.ui.ru.errors.tooLarge);
+      return;
+    }
+
+    this.images[slot] = file;
+    this.displayImagePreview(file, slot);
+    this.updateAnalyzeButton();
+  }
+
+  // Отображение превью
+  displayImagePreview(file, slot) {
+    const suffix = slot.charAt(0).toUpperCase() + slot.slice(1);
+    const uploadArea = this.elements[`uploadArea${suffix}`];
+    const previewSlot = this.elements[`previewSlot${suffix}`];
+    const preview = this.elements[`imagePreview${suffix}`];
+
+    if (!preview || !previewSlot || !uploadArea) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      preview.src = e.target.result;
+      uploadArea.style.display = 'none';
+      previewSlot.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Очистка одного изображения
+  clearImage(slot) {
+    const suffix = slot.charAt(0).toUpperCase() + slot.slice(1);
+    const input = this.elements[`imageInput${suffix}`];
+    const uploadArea = this.elements[`uploadArea${suffix}`];
+    const previewSlot = this.elements[`previewSlot${suffix}`];
+    const preview = this.elements[`imagePreview${suffix}`];
+
+    this.images[slot] = null;
+    if (input) input.value = '';
+    if (preview) preview.src = '';
+    if (uploadArea) uploadArea.style.display = 'flex';
+    if (previewSlot) previewSlot.style.display = 'none';
+
+    this.updateAnalyzeButton();
+  }
+
+  // Очистка всех изображений
+  clearAllImages() {
+    ['front', 'back', 'side'].forEach(slot => this.clearImage(slot));
+    this.elements.resultsContainer.innerHTML = '';
+  }
+
+  // Проверка наличия хотя бы одного изображения
+  hasAnyImage() {
+    return Object.values(this.images).some(img => img !== null);
+  }
+
+  // Получение загруженных изображений
+  getUploadedImages() {
+    const result = [];
+    if (this.images.front) result.push({ file: this.images.front, label: 'Спереди' });
+    if (this.images.back) result.push({ file: this.images.back, label: 'Сзади' });
+    if (this.images.side) result.push({ file: this.images.side, label: 'Сбоку' });
+    return result;
+  }
+
+  // Обновление состояния кнопки анализа
+  updateAnalyzeButton() {
+    this.elements.analyzeBtn.disabled = !this.hasAnyImage();
+  }
+
+  // Получение информации о ребёнке
+  getChildInfo() {
+    return {
+      age: this.elements.childAge?.value || null,
+      weight: this.elements.childWeight?.value || null
+    };
+  }
+
   // Настройка селектора моделей
   setupModelSelector() {
     this.elements.modelSelect.innerHTML = '';
@@ -194,12 +338,15 @@ class SlingCheckApp {
     }
 
     this.elements.apiKeyInput.placeholder = `API ключ для ${model.name}`;
-    
+
     // Подсказка для модели
     if (this.elements.modelHint) {
       if (model.recommended) {
         this.elements.modelHint.textContent = '⭐ Рекомендуется для лучшего качества';
         this.elements.modelHint.style.color = '#10B981';
+      } else if (model.provider === 'lanit') {
+        this.elements.modelHint.textContent = '🏢 Корпоративный vLLM (требуется доступ к LANIT)';
+        this.elements.modelHint.style.color = '#6366F1';
       } else {
         this.elements.modelHint.textContent = '';
       }
@@ -209,7 +356,7 @@ class SlingCheckApp {
   // Обновление UI при смене режима
   updateUIForMode() {
     const mode = CONFIG.analysisModes[this.currentMode];
-    
+
     if (this.elements.modeDescription) {
       let desc = mode.description;
       if (mode.steps > 1) {
@@ -225,7 +372,6 @@ class SlingCheckApp {
   // Загрузка промптов для текущего режима
   loadPromptsForMode() {
     if (this.currentMode === 'twoStep') {
-      // Для двухэтапного показываем только первый этап
       const prompts = PROMPTS.twoStep.step1;
       if (this.elements.systemPrompt) {
         this.elements.systemPrompt.value = prompts.system;
@@ -242,7 +388,7 @@ class SlingCheckApp {
         this.elements.userPrompt.value = prompts.user;
       }
     }
-    
+
     this.useCustomPrompts = false;
     aiClient.clearCustomPrompts();
   }
@@ -269,15 +415,15 @@ class SlingCheckApp {
     if (!this.elements.manualPositionEnabled?.checked) {
       return null;
     }
-    
+
     const position = this.elements.manualPosition?.value;
     const age = this.elements.manualAge?.value || null;
     const legs = this.elements.manualLegs?.value || null;
-    
+
     if (!position) {
       return null;
     }
-    
+
     return { position, age, legs };
   }
 
@@ -331,54 +477,10 @@ class SlingCheckApp {
     this.showSuccess('API ключ сохранён');
   }
 
-  // Обработка выбора изображения
-  handleImageSelect(event) {
-    const file = event.target.files[0];
-    if (file) this.handleImageFile(file);
-  }
-
-  // Валидация и обработка файла
-  handleImageFile(file) {
-    if (!CONFIG.app.acceptedFormats.includes(file.type)) {
-      this.showError(CONFIG.ui.ru.errors.invalidFormat);
-      return;
-    }
-    if (file.size > CONFIG.app.maxImageSize) {
-      this.showError(CONFIG.ui.ru.errors.tooLarge);
-      return;
-    }
-
-    this.selectedImage = file;
-    this.displayImagePreview(file);
-    this.elements.analyzeBtn.disabled = false;
-  }
-
-  // Отображение превью
-  displayImagePreview(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      this.elements.imagePreview.src = e.target.result;
-      this.elements.previewContainer.style.display = 'block';
-      this.elements.uploadArea.style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-  }
-
-  // Очистка изображения
-  clearImage() {
-    this.selectedImage = null;
-    this.elements.imagePreview.src = '';
-    this.elements.previewContainer.style.display = 'none';
-    this.elements.uploadArea.style.display = 'block';
-    this.elements.analyzeBtn.disabled = true;
-    this.elements.imageInput.value = '';
-    this.elements.resultsContainer.innerHTML = '';
-  }
-
-  // Анализ изображения
-  async analyzeImage() {
-    if (!this.selectedImage) {
-      this.showError(CONFIG.ui.ru.errors.noImage);
+  // Анализ изображений
+  async analyzeImages() {
+    if (!this.hasAnyImage()) {
+      this.showError('Пожалуйста, загрузите хотя бы одно фото');
       return;
     }
 
@@ -401,46 +503,40 @@ class SlingCheckApp {
     this.elements.resultsContainer.innerHTML = '';
 
     try {
+      const uploadedImages = this.getUploadedImages();
+      const childInfo = this.getChildInfo();
+      const model = CONFIG.models[this.currentModel];
       const mode = CONFIG.analysisModes[this.currentMode];
+
+      this.updateLoadingText(
+        `Анализируем ${uploadedImages.length} фото...`,
+        `Модель: ${model.name}`
+      );
+
       let result;
 
-      // Если указана ручная позиция — используем специальный режим
       if (manualData) {
-        const legsText = manualData.legs ? manualData.legs : 'определит модель';
-        const ageText = manualData.age ? manualData.age : 'определит модель';
-        this.updateLoadingText('Анализируем с указанной позицией...', `Позиция: ${manualData.position}`);
-        result = await aiClient.analyzeWithManualPosition(
-          this.selectedImage,
+        // Анализ с ручной позицией
+        result = await aiClient.analyzeMultipleWithManualPosition(
+          uploadedImages,
           this.currentModel,
           apiKey,
-          manualData.position,
-          manualData.age,
-          manualData.legs
+          manualData,
+          childInfo
         );
       } else {
-        // Обычный анализ
-        if (mode.steps > 1) {
-          this.updateLoadingText('Этап 1: Определение позиции...', `Режим: ${mode.name}`);
-        } else {
-          this.updateLoadingText('Анализируем фото...', `Модель: ${CONFIG.models[this.currentModel].name}`);
-        }
-
-        const callbacks = {
-          onStep1Complete: (response, parsed) => {
-            this.updateLoadingText('Этап 2: Полный анализ...', `Позиция: ${parsed.position}`);
-          }
-        };
-
-        result = await aiClient.analyze(
-          this.selectedImage,
+        // Стандартный анализ
+        result = await aiClient.analyzeMultiple(
+          uploadedImages,
           this.currentModel,
           apiKey,
           this.currentMode,
-          callbacks
+          childInfo,
+          (step, info) => this.updateLoadingText(step, info)
         );
       }
 
-      this.displayResults(result, manualData);
+      this.displayResults(result, uploadedImages.length, childInfo, manualData);
 
     } catch (error) {
       console.error('Ошибка анализа:', error);
@@ -462,16 +558,21 @@ class SlingCheckApp {
   }
 
   // Отображение результатов
-  displayResults(analysisText, manualData = null) {
+  displayResults(analysisText, imageCount, childInfo, manualData = null) {
     const mode = CONFIG.analysisModes[this.currentMode];
     const model = CONFIG.models[this.currentModel];
 
     let infoLine = `Модель: ${model.name}`;
+    infoLine += ` | Фото: ${imageCount}`;
+
+    if (childInfo.age) {
+      infoLine += ` | Возраст: ${childInfo.age}`;
+    }
+    if (childInfo.weight) {
+      infoLine += ` | Вес: ${childInfo.weight} кг`;
+    }
     if (manualData) {
       infoLine += ` | 📍 ${manualData.position}`;
-      if (manualData.age) {
-        infoLine += ` | ${manualData.age}`;
-      }
     } else {
       infoLine += ` | Режим: ${mode.name}`;
     }
@@ -570,7 +671,7 @@ class SlingCheckApp {
 // Инициализация
 document.addEventListener('DOMContentLoaded', () => {
   const env = CONFIG.isProduction() ? 'PRODUCTION' : 'DEVELOPMENT';
-  console.log(`🚀 SlingCheck v2.0 запущен в режиме: ${env}`);
+  console.log(`🚀 SlingCheck v3.0 запущен в режиме: ${env}`);
   console.log(`📊 Доступные модели:`, Object.keys(CONFIG.models).join(', '));
   console.log(`🔧 Режимы анализа:`, Object.keys(CONFIG.analysisModes).join(', '));
 

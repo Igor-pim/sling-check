@@ -133,29 +133,111 @@
                 </div>
             </section>
 
-            <!-- Загрузка фото -->
+            <!-- Данные о ребёнке -->
+            <section class="child-info-section">
+                <div class="settings-card">
+                    <h2>👶 Информация о ребёнке</h2>
+                    <div class="child-info-grid">
+                        <div class="form-group">
+                            <label for="childAge">Возраст ребёнка:</label>
+                            <select id="childAge">
+                                <option value="">-- Не указан --</option>
+                                <option value="0-3 мес">0-3 месяца (новорожденный)</option>
+                                <option value="3-6 мес">3-6 месяцев</option>
+                                <option value="6-12 мес">6-12 месяцев</option>
+                                <option value="1-1.5 года">1-1.5 года</option>
+                                <option value="1.5-2 года">1.5-2 года</option>
+                                <option value="2-3 года">2-3 года</option>
+                                <option value="3+ лет">3+ лет</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="childWeight">Вес ребёнка (кг):</label>
+                            <input type="number" id="childWeight" placeholder="например: 8" min="2" max="25" step="0.5">
+                        </div>
+                    </div>
+                    <small class="hint">Эта информация поможет точнее оценить соответствие переноски возрасту</small>
+                </div>
+            </section>
+
+            <!-- Загрузка фото (3 ракурса) -->
             <section class="upload-section">
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-content">
-                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <p class="upload-text">Перетащите фото сюда или</p>
-                        <button class="btn btn-primary" id="uploadBtn">Выбрать фото</button>
-                        <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
-                        <small class="upload-hint">Поддерживаются JPG, PNG, WebP до 5MB</small>
+                <h2>📸 Загрузите фото с 3 сторон</h2>
+                <p class="hint">Для точного анализа рекомендуем загрузить фото спереди, сзади и сбоку</p>
+
+                <div class="multi-upload-grid">
+                    <!-- Фото спереди -->
+                    <div class="upload-slot" id="uploadSlotFront">
+                        <div class="upload-area" id="uploadAreaFront">
+                            <div class="upload-content">
+                                <svg class="upload-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p class="upload-label">📷 Спереди</p>
+                                <button class="btn btn-secondary btn-small" id="uploadBtnFront">Выбрать</button>
+                                <input type="file" id="imageInputFront" accept="image/jpeg,image/png,image/webp" hidden>
+                            </div>
+                        </div>
+                        <div class="preview-slot" id="previewSlotFront" style="display: none;">
+                            <img id="imagePreviewFront" alt="Фото спереди">
+                            <button class="btn-remove" id="clearBtnFront" title="Удалить">×</button>
+                            <span class="slot-label">Спереди</span>
+                        </div>
+                    </div>
+
+                    <!-- Фото сзади -->
+                    <div class="upload-slot" id="uploadSlotBack">
+                        <div class="upload-area" id="uploadAreaBack">
+                            <div class="upload-content">
+                                <svg class="upload-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p class="upload-label">📷 Сзади</p>
+                                <button class="btn btn-secondary btn-small" id="uploadBtnBack">Выбрать</button>
+                                <input type="file" id="imageInputBack" accept="image/jpeg,image/png,image/webp" hidden>
+                            </div>
+                        </div>
+                        <div class="preview-slot" id="previewSlotBack" style="display: none;">
+                            <img id="imagePreviewBack" alt="Фото сзади">
+                            <button class="btn-remove" id="clearBtnBack" title="Удалить">×</button>
+                            <span class="slot-label">Сзади</span>
+                        </div>
+                    </div>
+
+                    <!-- Фото сбоку -->
+                    <div class="upload-slot" id="uploadSlotSide">
+                        <div class="upload-area" id="uploadAreaSide">
+                            <div class="upload-content">
+                                <svg class="upload-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p class="upload-label">📷 Сбоку</p>
+                                <button class="btn btn-secondary btn-small" id="uploadBtnSide">Выбрать</button>
+                                <input type="file" id="imageInputSide" accept="image/jpeg,image/png,image/webp" hidden>
+                            </div>
+                        </div>
+                        <div class="preview-slot" id="previewSlotSide" style="display: none;">
+                            <img id="imagePreviewSide" alt="Фото сбоку">
+                            <button class="btn-remove" id="clearBtnSide" title="Удалить">×</button>
+                            <span class="slot-label">Сбоку</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Превью изображения -->
-                <div class="preview-container" id="previewContainer" style="display: none;">
-                    <img id="imagePreview" alt="Предпросмотр фото">
-                    <button id="analyzeBtn" class="btn btn-large btn-primary" disabled>
-                        🔍 Анализировать
-                    </button>
-                    <button id="clearImageBtn" class="btn btn-secondary btn-small">Очистить</button>
+                <div class="upload-actions">
+                    <small class="upload-hint">JPG, PNG, WebP до 5MB. Минимум 1 фото для анализа.</small>
+                    <div class="action-buttons">
+                        <button id="analyzeBtn" class="btn btn-large btn-primary" disabled>
+                            🔍 Анализировать
+                        </button>
+                        <button id="clearAllBtn" class="btn btn-secondary">Очистить все</button>
+                    </div>
                 </div>
             </section>
 
@@ -173,10 +255,10 @@
         </main>
 
         <footer>
-            <p>SlingCheck v2.0 — Demo version</p>
+            <p>SlingCheck v3.0 — Demo version</p>
             <small>
                 Это приложение помогает оценить эргономику, но не заменяет консультацию специалиста.
-                <br>Основано на стандартах <a href="https://babyslingsafety.co.uk/" target="_blank">T.I.C.K.S.</a> 
+                <br>Основано на стандартах <a href="https://babyslingsafety.co.uk/" target="_blank">T.I.C.K.S.</a>
                 и <a href="https://hipdysplasia.org/baby-wearing/" target="_blank">IHDI</a>.
             </small>
         </footer>
@@ -215,14 +297,26 @@
             </div>
 
             <div class="help-section">
+                <h3>🏢 LANIT Qwen2.5-VL-7B</h3>
+                <p>Корпоративный vLLM сервер с моделью Qwen2.5-VL-7B Instruct.</p>
+                <ul>
+                    <li>Требуется доступ к корпоративной сети LANIT</li>
+                    <li>API ключ выдаётся администратором</li>
+                    <li>Бесплатно для сотрудников</li>
+                </ul>
+                <p class="info-note">💡 Хороший вариант для тестирования без затрат на API</p>
+            </div>
+
+            <div class="help-section">
                 <h3>📊 Режимы анализа</h3>
                 <ul>
                     <li><strong>Простой (v1)</strong> — базовый анализ, может ошибаться в определении позиции</li>
                     <li><strong>Структурированный (v2)</strong> — использует стандарты T.I.C.K.S. и IHDI</li>
                     <li><strong>С верификацией (v3)</strong> — модель сначала описывает что видит, потом оценивает</li>
+                    <li><strong>Экспертный (v4) ⭐</strong> — полный анализ по рекомендациям консультанта: физиологичность переноски, правильность надевания, М-позиция, комфорт взрослого</li>
                     <li><strong>Двухэтапный</strong> — отдельно определяет позицию, потом анализирует (2 вызова API)</li>
                 </ul>
-                <p class="info-note">💡 Рекомендуем <strong>v3</strong> или <strong>Двухэтапный</strong> для более точных результатов</p>
+                <p class="info-note">💡 Рекомендуем <strong>Экспертный (v4)</strong> для наиболее полного анализа</p>
             </div>
 
             <div class="help-section">
@@ -233,8 +327,9 @@
                     <tr><td>Claude Sonnet 4</td><td>$0.005</td></tr>
                     <tr><td>Claude Opus 4</td><td>$0.02</td></tr>
                     <tr><td>GPT-4o</td><td>$0.01</td></tr>
+                    <tr><td>LANIT Qwen2.5-VL</td><td>Бесплатно</td></tr>
                 </table>
-                <small>Двухэтапный режим удваивает стоимость</small>
+                <small>Двухэтапный режим удваивает стоимость. При 3 фото стоимость может увеличиться.</small>
             </div>
 
             <div class="help-section">

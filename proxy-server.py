@@ -15,7 +15,7 @@ class CORSProxyHandler(BaseHTTPRequestHandler):
         """Устанавливает CORS заголовки"""
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, x-api-key, anthropic-version, Authorization')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, x-api-key, X-API-KEY, anthropic-version, Authorization')
 
     def do_OPTIONS(self):
         """Обработка preflight запросов"""
@@ -37,6 +37,10 @@ class CORSProxyHandler(BaseHTTPRequestHandler):
             target_url = 'https://api.openai.com' + self.path.replace('/openai', '')
             api_key_header = 'Authorization'
             extra_headers = {}
+        elif '/lanit/' in self.path:
+            target_url = 'https://gpt-api.lanit.dev' + self.path.replace('/lanit', '')
+            api_key_header = 'X-API-KEY'
+            extra_headers = {}
         else:
             self.send_response(404)
             self.end_headers()
@@ -51,6 +55,12 @@ class CORSProxyHandler(BaseHTTPRequestHandler):
         # Добавляем API ключ
         if api_key_header in self.headers:
             headers[api_key_header] = self.headers[api_key_header]
+        elif api_key_header.lower() in [h.lower() for h in self.headers.keys()]:
+            # Case-insensitive lookup
+            for h in self.headers.keys():
+                if h.lower() == api_key_header.lower():
+                    headers[api_key_header] = self.headers[h]
+                    break
         elif 'Authorization' in self.headers:
             headers['Authorization'] = self.headers['Authorization']
 
